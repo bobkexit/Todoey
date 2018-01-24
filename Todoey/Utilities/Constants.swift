@@ -8,5 +8,12 @@
 
 import Foundation
 
+// MARK: TableViewCell Ids
+
 let TODO_ITEM_CELL = "ToDoItemCell"
-let TODO_LIST_ARRAY = "TodoListArray"
+let CATEGORY_CELL = "CategoryCell"
+
+
+// MARK: Segue Ids
+
+let GO_TO_ITEMS = "goToItems"

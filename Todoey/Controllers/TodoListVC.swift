@@ -7,19 +7,31 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoListVC: UITableViewController {
 
+    var selectedCategory: Category? {
+        didSet {
+            reloadItems(withFilter: nil)
+        }
+    }
     var itemArray = [Item]()
     
     let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("items.plist")
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        loadItems()
+        
+        reloadItems(withFilter: nil)
+        
+        if let selectedCategory = selectedCategory {
+            navigationItem.title = selectedCategory.name
+        }
+        
     }
 
-    //MARK: TableView DataSource Methods
+    //MARK: - TableView DataSource Methods
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
@@ -37,7 +49,7 @@ class TodoListVC: UITableViewController {
         return itemArray.count
     }
     
-    //MARK: TableView Delegate Methods
+    //MARK: - TableView Delegate Methods
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
@@ -45,12 +57,17 @@ class TodoListVC: UITableViewController {
         selectedItem.done = !selectedItem.done
         
         tableView.cellForRow(at: indexPath)?.accessoryType = selectedItem.done ? .checkmark : .none
-        //tableView.reloadRows(at: [indexPath], with: .automatic) //TODO: check this part tableView.reloadData()
-        saveItems()
+        
+//        itemArray.remove(at: indexPath.row)
+//        DataService.sharedInstance.context.delete(selectedItem)
+        
+        DataService.sharedInstance.saveContext()
+        
+        tableView.reloadData()
         tableView.deselectRow(at: indexPath, animated: true)
     }
-
-    //MARK: Add New Item
+    
+    //MARK: - Add New Item
     
     @IBAction func addBtnPressed(_ sender: Any) {
         
@@ -59,17 +76,19 @@ class TodoListVC: UITableViewController {
         let alert = UIAlertController(title: "Add New Todoey Item", message: "", preferredStyle: .alert)
         
         let action = UIAlertAction(title: "Add New Item", style: .default) { (action) in
+           
             guard let text = textField.text, !text.isEmpty else {
                 return
             }
             
-            let newItem = Item(title: text)
+            let newItem = Item(context: DataService.sharedInstance.context)
+            newItem.title = text
+            newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             
-            self.itemArray.append(newItem)
+            DataService.sharedInstance.saveContext()
             
-            self.saveItems()
-            
-            self.tableView.reloadData()
+            self.reloadItems(withFilter: nil)
         }
         
         alert.addTextField { (alertTextField) in
@@ -83,28 +102,46 @@ class TodoListVC: UITableViewController {
         
     }
     
-    //MARK: Model Manipulation Methods
+    //MARK: - Model Manipulation Methods
     
-    func saveItems() {
-        let encoder = PropertyListEncoder()
+    func reloadItems(withFilter filter: String?) {
         
-        do {
-            let data = try encoder.encode(self.itemArray)
-            try data.write(to: self.dataFilePath!)
-        } catch {
-            print("Error encoding item array, \(error)")
+        guard let category = selectedCategory else {
+            return
         }
+        
+        DataService.sharedInstance.loadItems(forCategory: category, andFilteredBy: filter) { (filteredItems) in
+            self.itemArray = filteredItems
+            self.tableView.reloadData()
+        }
+        
     }
     
-    func loadItems() {
-        let decoder = PropertyListDecoder()
+}
+
+//MARK: - Searchbar Delegate Methods
+
+extension TodoListVC: UISearchBarDelegate {
+   
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         
-        do {
-            let data = try Data(contentsOf: dataFilePath!)
-            itemArray = try decoder.decode([Item].self, from: data)
-        } catch  {
-            print("Error deencoding item array, \(error)")
+        guard let text = searchBar.text, !text.isEmpty else {
+            return
         }
+        
+        self.reloadItems(withFilter: text)
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+       
+        if !searchText.isEmpty { return }
+        
+        self.reloadItems(withFilter: nil)
+        
+        DispatchQueue.main.async {
+             searchBar.resignFirstResponder()
+        }
+       
     }
 }
 

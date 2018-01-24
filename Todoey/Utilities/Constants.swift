@@ -9,3 +9,4 @@
 import Foundation
 
 let TODO_ITEM_CELL = "ToDoItemCell"
+let TODO_LIST_ARRAY = "TodoListArray"

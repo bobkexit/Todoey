@@ -12,9 +12,14 @@ class TodoListVC: UITableViewController {
 
     var itemArray = ["Find Mike", "Bye Eggos", "Destroy Demogorgon"]
     
+    let defaults = UserDefaults.standard
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+        
+        if let todoListArray = defaults.array(forKey: TODO_LIST_ARRAY) as? [String] {
+            itemArray = todoListArray
+        }
     }
 
     //MARK: TableView DataSource Methods
@@ -56,6 +61,7 @@ class TodoListVC: UITableViewController {
                 return
             }
             self.itemArray.append(text)
+            self.defaults.set(self.itemArray, forKey: TODO_LIST_ARRAY)
             self.tableView.reloadData()
         }
         

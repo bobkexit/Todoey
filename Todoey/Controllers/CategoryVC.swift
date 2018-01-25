@@ -7,11 +7,11 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryVC: UITableViewController {
 
-    var categoryArray = [Category]()
+    var catigories: Results<Category>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -24,14 +24,15 @@ class CategoryVC: UITableViewController {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: CATEGORY_CELL, for: indexPath)
         
-        let category = categoryArray[indexPath.row]
-        cell.textLabel?.text = category.name
+        if let category = catigories?[indexPath.row] {
+            cell.textLabel?.text = category.name
+        }
         
         return cell
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return catigories?.count ?? 0
     }
     
     //MARK: - TableView Delegate Methods
@@ -43,12 +44,11 @@ class CategoryVC: UITableViewController {
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         
         let destinationVC = segue.destination as! TodoListVC
-        
-        guard let indexPath = tableView.indexPathForSelectedRow else {
-            return
+       
+        if let indexPath = tableView.indexPathForSelectedRow {
+             destinationVC.selectedCategory = catigories?[indexPath.row]
         }
-        
-        destinationVC.selectedCategory = categoryArray[indexPath.row]
+    
     }
     
     //MARK: - Add New Category
@@ -65,10 +65,10 @@ class CategoryVC: UITableViewController {
                 return
             }
             
-            let newCategory = Category(context: DataService.sharedInstance.context)
+            let newCategory = Category()
             newCategory.name = name
             
-            DataService.sharedInstance.saveContext()
+            RealmDataService.sharedInstance.save(category: newCategory)
             
             self.reloadCategories()
         }
@@ -92,9 +92,7 @@ class CategoryVC: UITableViewController {
     //MARK: - Model Manipulation Methods
     
     func reloadCategories() {
-        DataService.sharedInstance.loadCategories { (fetchedCategories) in
-            self.categoryArray = fetchedCategories
-            self.tableView.reloadData()
-        }
+        catigories = RealmDataService.sharedInstance.realm.objects(Category.self)
+        tableView.reloadData()
     }
 }

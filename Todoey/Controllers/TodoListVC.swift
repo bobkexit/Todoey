@@ -7,23 +7,22 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class TodoListVC: UITableViewController {
 
     var selectedCategory: Category? {
         didSet {
-            reloadItems(withFilter: nil)
+            reloadItems()
         }
     }
-    var itemArray = [Item]()
     
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("items.plist")
+    var items: Results<Item>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        reloadItems(withFilter: nil)
+        reloadItems()
         
         if let selectedCategory = selectedCategory {
             navigationItem.title = selectedCategory.name
@@ -37,33 +36,37 @@ class TodoListVC: UITableViewController {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: TODO_ITEM_CELL, for: indexPath)
         
-        let item = itemArray[indexPath.row]
-        
-        cell.textLabel?.text = item.title
-        cell.accessoryType = item.done ? .checkmark : .none
+        if let item = items?[indexPath.row] {
+            cell.textLabel?.text = item.title
+            cell.accessoryType = item.done ? .checkmark : .none
+        }
         
         return cell
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return itemArray.count
+        return items?.count ?? 0
     }
     
     //MARK: - TableView Delegate Methods
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
-        let selectedItem = itemArray[indexPath.row]
-        selectedItem.done = !selectedItem.done
+        guard let item = items?[indexPath.row] else {
+            return
+        }
         
-        tableView.cellForRow(at: indexPath)?.accessoryType = selectedItem.done ? .checkmark : .none
+        do {
+            try RealmDataService.sharedInstance.realm.write {
+                item.done = !item.done
+            }
+        } catch {
+            print("Error trying update item, \(error)")
+        }
         
-//        itemArray.remove(at: indexPath.row)
-//        DataService.sharedInstance.context.delete(selectedItem)
+        tableView.cellForRow(at: indexPath)?.accessoryType = item.done ? .checkmark : .none
         
-        DataService.sharedInstance.saveContext()
-        
-        tableView.reloadData()
+        //tableView.reloadRows(at: [indexPath], with: .automatic)
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
@@ -77,18 +80,19 @@ class TodoListVC: UITableViewController {
         
         let action = UIAlertAction(title: "Add New Item", style: .default) { (action) in
            
-            guard let text = textField.text, !text.isEmpty else {
+            guard
+                let category = self.selectedCategory,
+                let text = textField.text, !text.isEmpty
+            else {
                 return
             }
             
-            let newItem = Item(context: DataService.sharedInstance.context)
+            let newItem = Item()
             newItem.title = text
-            newItem.done = false
-            newItem.parentCategory = self.selectedCategory
             
-            DataService.sharedInstance.saveContext()
+            RealmDataService.sharedInstance.save(item: newItem, forCategory: category)
             
-            self.reloadItems(withFilter: nil)
+            self.reloadItems()
         }
         
         alert.addTextField { (alertTextField) in
@@ -104,17 +108,15 @@ class TodoListVC: UITableViewController {
     
     //MARK: - Model Manipulation Methods
     
-    func reloadItems(withFilter filter: String?) {
+    func reloadItems() {
         
         guard let category = selectedCategory else {
             return
         }
         
-        DataService.sharedInstance.loadItems(forCategory: category, andFilteredBy: filter) { (filteredItems) in
-            self.itemArray = filteredItems
-            self.tableView.reloadData()
-        }
-        
+        items = category.items.sorted(byKeyPath: "title", ascending: true)
+        tableView.reloadData()
+       
     }
     
 }
@@ -129,14 +131,15 @@ extension TodoListVC: UISearchBarDelegate {
             return
         }
         
-        self.reloadItems(withFilter: text)
+        items = items?.filter("title CONTAINS[cd] %@", text).sorted(byKeyPath: "title", ascending: true)
+        tableView.reloadData()
     }
     
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
        
         if !searchText.isEmpty { return }
         
-        self.reloadItems(withFilter: nil)
+        self.reloadItems()
         
         DispatchQueue.main.async {
              searchBar.resignFirstResponder()

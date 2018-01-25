@@ -38,4 +38,15 @@ class RealmDataService {
             print("Error saving item \(error)")
         }
     }
+    
+    func remove(_ object: Object)  {
+        do {
+            try realm.write {
+                realm.delete(object)
+            }
+        } catch  {
+            print("Error deleting object \(error)")
+        }
+    }
+    
 }

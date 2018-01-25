@@ -8,13 +8,15 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryVC: UITableViewController {
+class CategoryVC: SwipeTableVC {
 
     var catigories: Results<Category>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+    
         reloadCategories()
     }
     
@@ -22,10 +24,12 @@ class CategoryVC: UITableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: CATEGORY_CELL, for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let category = catigories?[indexPath.row] {
             cell.textLabel?.text = category.name
+            cell.backgroundColor = UIColor(hexString: category.hexColor)
+            cell.textLabel?.textColor = ContrastColorOf(cell.backgroundColor!, returnFlat: true)
         }
         
         return cell
@@ -33,6 +37,15 @@ class CategoryVC: UITableViewController {
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return catigories?.count ?? 0
+    }
+    
+    override func upadateModel(atIndexPath indexPath: IndexPath) {
+        
+        guard let category = self.catigories?[indexPath.row] else {
+            return
+        }
+        
+        RealmDataService.sharedInstance.remove(category)
     }
     
     //MARK: - TableView Delegate Methods

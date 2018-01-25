@@ -12,6 +12,7 @@ import Foundation
 
 let TODO_ITEM_CELL = "ToDoItemCell"
 let CATEGORY_CELL = "CategoryCell"
+let CELL = "Cell"
 
 
 // MARK: Segue Ids
